@@ -277,7 +277,7 @@ a {
   pointer-events: none;
   opacity: 0.72;
   transform-origin: 24% 34%;
-  animation: doodleBreath 10s ease-in-out infinite;
+  animation: doodleBreath 7.2s ease-in-out infinite;
 }
 
 .doodle-circle {
@@ -286,7 +286,7 @@ a {
   border: 1px solid rgba(25, 25, 25, 0.32);
   border-radius: 50%;
   transform: rotate(-6deg);
-  animation: doodleRotateA 14s ease-in-out infinite;
+  animation: doodleRotateA 9s ease-in-out infinite;
 }
 
 .doodle-wave {
@@ -299,7 +299,7 @@ a {
   border-bottom: 1px solid rgba(25, 25, 25, 0.25);
   border-radius: 999px;
   transform: rotate(9deg);
-  animation: doodleRotateB 12s ease-in-out infinite;
+  animation: doodleRotateB 8s ease-in-out infinite;
 }
 
 .doodle-zig {
@@ -315,7 +315,7 @@ a {
     transparent 12px,
     transparent 24px
   );
-  animation: doodleDrift 9s ease-in-out infinite;
+  animation: doodleDrift 6s ease-in-out infinite;
 }
 
 .doodle-note {
@@ -326,8 +326,8 @@ a {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(30, 30, 30, 0.56);
-  animation: doodleDrift 9s ease-in-out infinite;
-  animation-delay: 0.6s;
+  animation: doodleDrift 6s ease-in-out infinite;
+  animation-delay: 0.4s;
 }
 
 .campaign-eyebrow {
@@ -506,6 +506,7 @@ a {
   border-bottom: 1px solid var(--line);
   padding: 1.5rem 0;
   scroll-margin-top: 88px;
+  background: #f7f7f5;
 }
 
 .collections-grid {
@@ -519,12 +520,31 @@ a {
   background: #fff;
   padding: 1rem;
   min-height: 200px;
+  position: relative;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+  cursor: pointer;
+}
+
+.collection-card:hover,
+.collection-card:focus-within {
+  transform: translateY(-6px);
+  border-color: #c8c7c2;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
 }
 
 .collection-card--contrast {
   background: #131313;
   color: #f2f2f2;
   border-color: #131313;
+}
+
+.collection-card--contrast:hover,
+.collection-card--contrast:focus-within {
+  border-color: #1a1a1a;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
 }
 
 .mono-mode .collection-card--contrast {
@@ -566,6 +586,12 @@ a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.73rem;
+  transition: letter-spacing 220ms ease;
+}
+
+.collection-card:hover .collection-link,
+.collection-card:focus-within .collection-link {
+  letter-spacing: 0.1em;
 }
 
 .hero-grid {
@@ -827,8 +853,14 @@ a {
 .issue-card {
   border: 1px solid var(--line);
   padding: 0.9rem;
-  transition: transform 180ms ease, background-color 180ms ease;
   background: #fff;
+  position: relative;
+  transition:
+    transform 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+  cursor: pointer;
 }
 
 .issue-card--hero {
@@ -846,8 +878,10 @@ a {
 }
 
 .issue-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   background: #fdfcfb;
+  border-color: #c8c7c2;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
 }
 
 .issue-card--hero:hover {
@@ -1049,7 +1083,7 @@ a {
     transform: scale(1) translateY(0);
   }
   50% {
-    transform: scale(1.015) translateY(-2px);
+    transform: scale(1.05) translateY(-6px);
   }
 }
 
@@ -1058,8 +1092,14 @@ a {
   100% {
     transform: rotate(-6deg);
   }
+  25% {
+    transform: rotate(2deg);
+  }
   50% {
-    transform: rotate(-2deg);
+    transform: rotate(8deg);
+  }
+  75% {
+    transform: rotate(-4deg);
   }
 }
 
@@ -1068,8 +1108,14 @@ a {
   100% {
     transform: rotate(9deg);
   }
+  25% {
+    transform: rotate(-3deg);
+  }
   50% {
-    transform: rotate(5deg);
+    transform: rotate(12deg);
+  }
+  75% {
+    transform: rotate(2deg);
   }
 }
 
@@ -1078,8 +1124,14 @@ a {
   100% {
     transform: translateX(0);
   }
+  25% {
+    transform: translateX(-4px);
+  }
   50% {
-    transform: translateX(3px);
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-2px);
   }
 }
 
@@ -1108,6 +1160,17 @@ a {
   .doodle-zig,
   .doodle-note {
     animation: none;
+  }
+
+  .collection-card:hover,
+  .collection-card:focus-within,
+  .issue-card:hover {
+    transform: none;
+  }
+
+  .collection-card::before,
+  .issue-card::before {
+    transition: none;
   }
 }
 

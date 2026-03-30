@@ -142,8 +142,8 @@ export default function Home() {
         <section className="landing-hero">
           <div className="shell landing-grid">
             <div className="landing-copy motion-up">
-              <p className="landing-kicker motion-delay-1">Spring / Summer 26</p>
-              <h2 className="landing-title motion-delay-2">Open source, curated for software developers.</h2>
+              <p className="landing-kicker motion-delay-1">Spring / Summer' 26</p>
+              <h2 className="landing-title motion-delay-2">Open source, curated for open source devs.</h2>
               <p className="landing-subtitle motion-delay-3">
                 OpenSource Radar helps you discover contribution-ready issues the way premium retail helps
                 you discover your next look: clear, elegant, and intentional.
