@@ -1,12 +1,20 @@
 import {
+  CONTRIBUTION_SCOPES,
   DIFFICULTY_LABELS,
   FRESHNESS_OPTIONS,
   LANGUAGES,
   PER_PAGE_OPTIONS,
   SORT_OPTIONS,
+  getContributionScope,
 } from "@/utils/constants";
 
 export default function FilterSidebar({ filters, onFilterChange, onResetFilters }) {
+  const activeScope = getContributionScope(filters.scope);
+
+  const handleScopeChange = (e) => {
+    onFilterChange({ scope: e.target.value });
+  };
+
   const handleLanguageChange = (e) => {
     onFilterChange({ language: e.target.value });
   };
@@ -43,6 +51,22 @@ export default function FilterSidebar({ filters, onFilterChange, onResetFilters 
       <div className="panel-header">
         <h2 className="panel-title">Filters</h2>
         <button onClick={onResetFilters} className="link-button">Reset all</button>
+      </div>
+
+      <div className="form-block">
+        <label className="field-label">Collection</label>
+        <select
+          value={activeScope.value}
+          onChange={handleScopeChange}
+          className="select-input"
+        >
+          {CONTRIBUTION_SCOPES.map((scope) => (
+            <option key={scope.value} value={scope.value}>
+              {scope.label}
+            </option>
+          ))}
+        </select>
+        <p className="helper">{activeScope.blurb}</p>
       </div>
 
       <div className="form-block">

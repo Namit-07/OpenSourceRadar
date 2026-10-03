@@ -844,6 +844,162 @@ a {
   cursor: not-allowed;
 }
 
+/* --- GitHub sign-up / session --- */
+
+.github-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  font-size: 0.73rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 0.6rem 0.84rem;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.github-button:hover {
+  background: #232323;
+}
+
+.github-mark {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.auth-status {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.auth-avatar {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
+.auth-user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  max-width: 12rem;
+}
+
+.auth-user-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-user-handle {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+}
+
+.ghost-link--compact {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.68rem;
+}
+
+.results-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.quota-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.quota-chip {
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  padding: 0.2rem 0.45rem;
+  color: var(--ink-soft);
+}
+
+.quota-chip--token {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.quota-text {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* --- Sign-in gate (sign-in is mandatory) --- */
+
+.gate-wrap {
+  grid-column: 1 / -1;
+}
+
+.gate-panel {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.gate-kicker {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.gate-title {
+  margin: 0;
+  font-family: var(--font-heading), Georgia, serif;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.gate-copy {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 52ch;
+}
+
+.gate-copy--sub {
+  margin-top: -0.45rem;
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+
+.gate-panel .github-button {
+  margin-top: 0.4rem;
+}
+
 .issue-list {
   display: grid;
   gap: 0.8rem;
@@ -1234,6 +1390,22 @@ a {
 @media (max-width: 700px) {
   .topbar-row {
     min-height: 66px;
+    flex-wrap: wrap;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .auth-user-meta {
+    max-width: 8rem;
+  }
+
+  .results-head {
+    flex-wrap: wrap;
   }
 
   .brand-title {

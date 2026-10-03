@@ -1,3 +1,5 @@
+import AuthButton from "./AuthButton";
+
 export default function Header() {
   return (
     <header className="topbar">
@@ -15,6 +17,7 @@ export default function Header() {
           >
             View repository
           </a>
+          <AuthButton />
         </div>
       </div>
     </header>

@@ -1,16 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import Header from "@/components/Header";
 import FilterSidebar from "@/components/FilterSidebar";
 import IssueList from "@/components/IssueList";
+import SignInGate from "@/components/SignInGate";
 import { searchIssues } from "@/lib/github";
+import { DEFAULT_SCOPE } from "@/utils/constants";
 
 export default function Home() {
+  const { status: sessionStatus } = useSession();
   const [issues, setIssues] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [signInRequired, setSignInRequired] = useState(false);
+  const [reauthRequired, setReauthRequired] = useState(false);
+  const [rateLimit, setRateLimit] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [monochromeMode, setMonochromeMode] = useState(false);
   const [bridgeVisible, setBridgeVisible] = useState(false);
@@ -18,6 +25,7 @@ export default function Home() {
     keyword: "",
     language: "",
     labels: ["good first issue"],
+    scope: DEFAULT_SCOPE,
     noAssignees: true,
     updatedWithinDays: "30",
     sortBy: "updated",
@@ -27,6 +35,12 @@ export default function Home() {
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const requestIdRef = useRef(0);
   const bridgeRef = useRef(null);
+
+  // Sign-in is mandatory: the catalog only exists for authenticated visitors.
+  const sessionReady = sessionStatus !== "loading";
+  const signedIn = sessionStatus === "authenticated";
+  // Also gated when a previously valid session was dropped server-side (401).
+  const showGate = sessionReady && (!signedIn || signInRequired);
 
   const activeFilters = useMemo(
     () => ({
@@ -45,6 +59,18 @@ export default function Home() {
   }, [filters.keyword]);
 
   useEffect(() => {
+    if (!signedIn) {
+      // No GitHub token: never call the API, it refuses anyway.
+      requestIdRef.current += 1;
+      setIssues([]);
+      setTotalCount(0);
+      setError(null);
+      setRateLimit(null);
+      setReauthRequired(false);
+      setLoading(false);
+      return;
+    }
+
     async function fetchIssues() {
       const currentRequestId = ++requestIdRef.current;
       setLoading(true);
@@ -58,12 +84,18 @@ export default function Home() {
 
         setIssues(data.items || []);
         setTotalCount(data.total_count || 0);
+        setRateLimit(data.rateLimit ?? null);
+        setSignInRequired(false);
+        setReauthRequired(false);
       } catch (err) {
         if (currentRequestId !== requestIdRef.current) {
           return;
         }
 
         setError(err.message);
+        setSignInRequired(Boolean(err.signInRequired));
+        setReauthRequired(Boolean(err.requiresReauth));
+        setRateLimit(null);
         setIssues([]);
         setTotalCount(0);
       } finally {
@@ -77,6 +109,7 @@ export default function Home() {
   }, [
     activeFilters,
     refreshTick,
+    signedIn,
   ]);
 
   useEffect(() => {
@@ -119,6 +152,7 @@ export default function Home() {
       keyword: "",
       language: "",
       labels: ["good first issue"],
+      scope: DEFAULT_SCOPE,
       noAssignees: true,
       updatedWithinDays: "30",
       sortBy: "updated",
@@ -135,6 +169,12 @@ export default function Home() {
     setRefreshTick((tick) => tick + 1);
   };
 
+  // A revoked or expired token can only be fixed by signing in to GitHub again.
+  const handleReconnect = async () => {
+    await signOut({ redirect: false });
+    await signIn("github", { callbackUrl: window.location.href });
+  };
+
   return (
     <div className={monochromeMode ? "mono-mode" : ""}>
       <Header />
@@ -142,7 +182,7 @@ export default function Home() {
         <section className="landing-hero">
           <div className="shell landing-grid">
             <div className="landing-copy motion-up">
-              <p className="landing-kicker motion-delay-1">Spring / Summer' 26</p>
+              <p className="landing-kicker motion-delay-1">Summer / Winter&apos; 26</p>
               <h2 className="landing-title motion-delay-2">Open source, curated for open source devs.</h2>
               <p className="landing-subtitle motion-delay-3">
                 OpenSource Radar helps you discover contribution-ready issues the way premium retail helps
@@ -267,26 +307,37 @@ export default function Home() {
 
         <section className="catalog" id="catalog">
           <div className="shell catalog-grid">
-            <aside>
-              <FilterSidebar
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                onResetFilters={handleResetFilters}
-              />
-            </aside>
-            <section>
-              <IssueList
-                issues={issues}
-                loading={loading}
-                error={error}
-                totalCount={totalCount}
-                currentPage={filters.page}
-                perPage={filters.perPage}
-                onPageChange={(page) => handleFilterChange({ page })}
-                onRetry={handleRetry}
-                onRefresh={handleRefresh}
-              />
-            </section>
+            {showGate ? (
+              <div className="gate-wrap">
+                <SignInGate />
+              </div>
+            ) : (
+              <>
+                <aside>
+                  <FilterSidebar
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onResetFilters={handleResetFilters}
+                  />
+                </aside>
+                <section>
+                  <IssueList
+                    issues={issues}
+                    loading={loading}
+                    error={error}
+                    totalCount={totalCount}
+                    currentPage={filters.page}
+                    perPage={filters.perPage}
+                    rateLimit={rateLimit}
+                    reauthRequired={reauthRequired}
+                    onReconnect={handleReconnect}
+                    onPageChange={(page) => handleFilterChange({ page })}
+                    onRetry={handleRetry}
+                    onRefresh={handleRefresh}
+                  />
+                </section>
+              </>
+            )}
           </div>
         </section>
       </main>

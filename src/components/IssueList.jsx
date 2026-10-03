@@ -8,6 +8,9 @@ export default function IssueList({
   totalCount,
   currentPage,
   perPage,
+  rateLimit = null,
+  reauthRequired = false,
+  onReconnect,
   onPageChange,
   onRetry,
   onRefresh,
@@ -45,7 +48,15 @@ export default function IssueList({
         <div className="state-box">
           <h3 className="state-title">Unable to load issues</h3>
           <p className="state-copy">{error}</p>
-          <button onClick={onRetry} className="button-solid">Try again</button>
+          {reauthRequired ? (
+            <button onClick={onReconnect} className="button-solid">
+              Reconnect GitHub
+            </button>
+          ) : (
+            <button onClick={onRetry} className="button-solid">
+              Try again
+            </button>
+          )}
         </div>
       </div>
     );
@@ -65,10 +76,18 @@ export default function IssueList({
   return (
     <div className="panel results-panel">
       <div className="results-head">
-        <p className="results-meta">
-          Showing <strong>{startIndex}-{endIndex}</strong> of <strong>{totalCount}</strong> issues
-        </p>
-        <button onClick={onRefresh} className="button-ghost">Refresh</button>
+        <div className="results-head-copy">
+          <p className="results-meta">
+            Showing <strong>{startIndex}-{endIndex}</strong> of <strong>{totalCount}</strong> issues
+          </p>
+          <p className="quota-line">
+            <span className="quota-chip quota-chip--token">Your GitHub token</span>
+            <span className="quota-text">{buildQuotaText(rateLimit)}</span>
+          </p>
+        </div>
+        <button onClick={onRefresh} className="button-ghost">
+          Refresh
+        </button>
       </div>
 
       <div className="issue-list">
@@ -100,4 +119,15 @@ export default function IssueList({
       </div>
     </div>
   );
+}
+
+function buildQuotaText(rateLimit) {
+  if (!rateLimit) {
+    return "Searching with your GitHub token";
+  }
+
+  const remaining = Number(rateLimit.remaining ?? 0).toLocaleString("en-US");
+  const limit = Number(rateLimit.limit ?? 0).toLocaleString("en-US");
+
+  return `${remaining} of ${limit} searches left on your token this minute`;
 }
