@@ -52,6 +52,18 @@ function commit(next) {
   listeners.forEach((listener) => listener());
 }
 
+/**
+ * Wipe the saved list (memory + storage) and notify subscribers.
+ *
+ * Called on sign-out so one user's saved issues are never left behind for the
+ * next person who signs in on the same browser.
+ */
+export function clearSavedIssues() {
+  cache = EMPTY;
+  writeSavedIssues(EMPTY);
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
