@@ -1,4 +1,5 @@
 import AuthButton from "./AuthButton";
+import SavedNav from "./SavedNav";
 
 export default function Header() {
   return (
@@ -9,6 +10,7 @@ export default function Header() {
           <h1 className="brand-title">OpenSource Radar</h1>
         </div>
         <div className="topbar-actions">
+          <SavedNav />
           <a
             href="https://github.com/Namit-07/OpenSourceRadar"
             target="_blank"

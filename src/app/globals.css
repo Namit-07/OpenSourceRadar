@@ -1006,6 +1006,115 @@ a {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Wrapper so a save button can sit alongside the card's <a> without nesting an
+   interactive element inside another. It is the real grid item, so the hero /
+   editorial "span 2" behaviour lives here. */
+.issue-card-wrap {
+  position: relative;
+}
+
+/* The card root is an <a> (inline by default). It used to be a direct grid
+   child, which auto-blockified it; now that it sits inside this wrapper it
+   must be told to fill the wrapper as a block, otherwise borders/background
+   collapse and the list layout breaks. */
+.issue-card-wrap > .issue-card {
+  display: block;
+  height: 100%;
+}
+
+.issue-card-wrap--hero,
+.issue-card-wrap--editorial {
+  grid-column: span 2;
+}
+
+/* Save (bookmark) button, positioned over the card's top-right corner. */
+.save-button {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.save-button:hover {
+  background: #f3f2ef;
+  border-color: #c8c7c2;
+}
+
+.save-button--saved {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
+.save-button--saved:hover {
+  background: #232323;
+}
+
+.save-button:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+/* Hide the text label on very small cards to avoid crowding. */
+@media (max-width: 560px) {
+  .save-button-label {
+    display: none;
+  }
+}
+
+/* Header "Saved" nav link + count badge. */
+.saved-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  padding: 0.7rem 1rem;
+  transition: background-color 180ms ease;
+}
+
+.saved-nav:hover {
+  background: #f0efec;
+}
+
+.saved-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 0.68rem;
+  letter-spacing: 0;
+}
+
+/* Loading placeholder on the /saved page while hydrating from storage. */
+.saved-skeleton {
+  height: 96px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #fff 0%, #f6f5f2 100%);
+}
+
 .issue-card {
   border: 1px solid var(--line);
   padding: 0.9rem;
@@ -1059,6 +1168,9 @@ a {
   flex-wrap: wrap;
   gap: 0.42rem;
   margin-bottom: 0.12rem;
+  /* Leave room on the right for the absolutely-positioned save button so the
+     repo name / availability pill never sit underneath it. */
+  padding-right: 5.5rem;
 }
 
 .issue-repo {

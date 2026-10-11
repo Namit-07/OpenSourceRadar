@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
+import { SavedIssuesProvider } from "@/context/SavedIssuesContext";
 import { auth } from "@/auth";
 
 const headingFont = Cormorant_Garamond({
@@ -36,7 +37,9 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${headingFont.variable} ${bodyFont.variable} app-body`}>
-        <SessionProvider session={session}>{children}</SessionProvider>
+        <SessionProvider session={session}>
+          <SavedIssuesProvider>{children}</SavedIssuesProvider>
+        </SessionProvider>
       </body>
     </html>
   );
