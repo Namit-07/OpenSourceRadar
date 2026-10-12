@@ -3,6 +3,7 @@ import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { SavedIssuesProvider } from "@/context/SavedIssuesContext";
 import { auth } from "@/auth";
+import { Analytics } from "@vercel/analytics/next"
 
 const headingFont = Cormorant_Garamond({
   subsets: ["latin"],
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }) {
         <SessionProvider session={session}>
           <SavedIssuesProvider>{children}</SavedIssuesProvider>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   );
