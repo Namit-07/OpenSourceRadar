@@ -1,103 +1,128 @@
 "use client";
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
-import {
-  SAVED_ISSUES_STORAGE_KEY,
-  normalizeIssue,
-  readSavedIssues,
-  writeSavedIssues,
-} from "@/lib/savedIssues";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 
 /**
- * Client hook that owns the "saved issues" state.
+ * Client hook that owns the "saved issues" state, now backed by the
+ * server-side database via /api/saved-issues (see src/lib/db.js).
  *
- * It reads from a module-level store (localStorage today) via
- * `useSyncExternalStore`, which is React's recommended way to subscribe to an
- * external store and is hydration-safe: the server render uses an empty
- * snapshot and the client reconciles to the stored list on the first client
- * pass, with no effect and no hydration-mismatch warning.
+ * Flow:
+ *   - On sign-in (and whenever the session changes), fetch the saved list.
+ *   - Save/unsave update the UI optimistically, then reconcile with the server.
+ *   - On sign-out, the local list is cleared immediately.
  *
- * Because the store is module-level, every component that calls this hook
- * shares the same data, so save buttons, the header count, and the /saved page
- * never drift out of sync.
- *
- * Swapping the backing store (e.g. to a `/api/saved-issues` backend) only
- * requires changing `readSavedIssues`/`writeSavedIssues` in src/lib and the
- * `storage` sync below — the hook's public API stays identical.
+ * Because this lives in a shared context provider, every component (catalog
+ * save buttons, header count, /saved page) reads the same in-memory list and
+ * stays in sync within a session.
  */
-
-const EMPTY = [];
-
-// null means "not read from storage yet"; arrays are kept referentially stable
-// between mutations so useSyncExternalStore can compare them cheaply.
-let cache = null;
-const listeners = new Set();
-
-function getSnapshot() {
-  if (cache === null) {
-    // Client-only. On the server, useSyncExternalStore calls getServerSnapshot
-    // instead, so this never touches localStorage during SSR.
-    cache = readSavedIssues();
-  }
-  return cache;
-}
-
-function getServerSnapshot() {
-  return EMPTY;
-}
-
-function commit(next) {
-  cache = next;
-  writeSavedIssues(next);
-  listeners.forEach((listener) => listener());
-}
-
-/**
- * Wipe the saved list (memory + storage) and notify subscribers.
- *
- * Called on sign-out so one user's saved issues are never left behind for the
- * next person who signs in on the same browser.
- */
-export function clearSavedIssues() {
-  cache = EMPTY;
-  writeSavedIssues(EMPTY);
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-// Keep multiple browser tabs in sync: when another tab writes the same key,
-// reload from storage and notify subscribers.
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key === SAVED_ISSUES_STORAGE_KEY) {
-      cache = readSavedIssues();
-      listeners.forEach((listener) => listener());
-    }
-  });
-}
-
 export function useSavedIssues() {
-  const savedIssues = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { status: sessionStatus } = useSession();
+  const signedIn = sessionStatus === "authenticated";
+
+  const [savedIssues, setSavedIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load the saved list whenever the user is signed in; clear it otherwise.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!signedIn) {
+        setSavedIssues([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch("/api/saved-issues", {
+          headers: { Accept: "application/json" },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load saved issues");
+        }
+
+        const payload = await response.json();
+        if (!cancelled) {
+          setSavedIssues(payload?.items ?? []);
+        }
+      } catch {
+        // Fail soft: an empty list is safer than a crash. The UI still works,
+        // just without persisted saves until the next successful load.
+        if (!cancelled) {
+          setSavedIssues([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   const savedIds = useMemo(
     () => new Set(savedIssues.map((issue) => issue.id)),
     [savedIssues]
   );
 
-  const toggleSave = useCallback((issue) => {
-    const normalized = normalizeIssue(issue);
-    const exists = cache?.some((item) => item.id === normalized.id) ?? false;
+  const toggleSave = useCallback(
+    async (issue) => {
+      const exists = savedIds.has(issue.id);
 
-    // Newest first so the saved list reads like a recent-activity feed.
-    commit(exists ? cache.filter((item) => item.id !== normalized.id) : [normalized, ...cache]);
-  }, []);
+      // Optimistic update: flip state immediately, reconcile with the server.
+      setSavedIssues((prev) =>
+        exists
+          ? prev.filter((item) => item.id !== issue.id)
+          : [issue, ...prev]
+      );
 
-  const unsaveIssue = useCallback((id) => {
-    commit((cache ?? []).filter((item) => item.id !== id));
+      try {
+        if (exists) {
+          const response = await fetch(`/api/saved-issues/${issue.id}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) throw new Error("Failed to remove");
+        } else {
+          const response = await fetch("/api/saved-issues", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ issue }),
+          });
+          if (!response.ok) throw new Error("Failed to save");
+          // Replace the optimistic entry with the server's canonical record.
+          const payload = await response.json();
+          if (payload?.item) {
+            setSavedIssues((prev) => [
+              payload.item,
+              ...prev.filter((item) => item.id !== issue.id),
+            ]);
+          }
+        }
+      } catch {
+        // Roll back on failure so the UI reflects the true server state.
+        setSavedIssues((prev) =>
+          exists ? [issue, ...prev] : prev.filter((item) => item.id !== issue.id)
+        );
+      }
+    },
+    [savedIds]
+  );
+
+  const unsaveIssue = useCallback(async (id) => {
+    setSavedIssues((prev) => prev.filter((item) => item.id !== id));
+
+    try {
+      await fetch(`/api/saved-issues/${id}`, { method: "DELETE" });
+    } catch {
+      // Roll back by reloading is overkill here; leave removal optimistic.
+    }
   }, []);
 
   const isSaved = useCallback((id) => savedIds.has(id), [savedIds]);
@@ -106,10 +131,13 @@ export function useSavedIssues() {
     savedIssues,
     savedIds,
     savedCount: savedIssues.length,
-    hydrated: cache !== null,
+    loading,
+    // `hydrated` kept for backward compatibility with existing consumers.
+    hydrated: !loading,
     toggleSave,
     unsaveIssue,
     isSaved,
   };
 }
+
 

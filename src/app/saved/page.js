@@ -11,8 +11,9 @@ import { useSavedIssuesContext } from "@/context/SavedIssuesContext";
  * A user's saved issues — the ones they've decided to work on.
  *
  * Reads the same shared store as the catalog's save buttons, so anything saved
- * while browsing shows up here immediately. Saved data lives in localStorage
- * today (see src/lib/savedIssues.js) and is per-device.
+ * while browsing shows up here immediately. Saved data now lives in the
+ * server-side database (see src/lib/db.js), keyed by the signed-in GitHub
+ * account, so it follows the user across devices.
  *
  * Access is gated behind sign-in, matching the catalog: the saved list is only
  * ever shown to an authenticated visitor.

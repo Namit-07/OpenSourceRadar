@@ -3,18 +3,9 @@
 import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
 import GitHubMark from "./GitHubMark";
-import { clearSavedIssues } from "@/hooks/useSavedIssues";
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
-
-  const handleSignOut = async () => {
-    // Saved issues live in localStorage, independent of the GitHub session, so
-    // they must be wiped explicitly — otherwise the next person to sign in on
-    // this browser would see the previous user's saved issues.
-    clearSavedIssues();
-    await signOut({ callbackUrl: "/" });
-  };
 
   if (status === "loading") {
     return <span className="auth-status">Checking account…</span>;
@@ -53,7 +44,7 @@ export default function AuthButton() {
       <button
         type="button"
         className="ghost-link ghost-link--compact"
-        onClick={handleSignOut}
+        onClick={() => signOut({ callbackUrl: "/" })}
       >
         Sign out
       </button>
