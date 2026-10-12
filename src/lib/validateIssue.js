@@ -12,18 +12,42 @@ const MAX_URL_LENGTH = 500;
 const MAX_LABELS = 20;
 const MAX_ASSIGNEES = 20;
 
-/** A URL we're willing to store and later render as a link href. */
-function isSafeGithubUrl(value) {
+/**
+ * Validate a URL is https and on an allowed GitHub host.
+ *
+ * @param {unknown} value
+ * @param {string[]} allowedHosts - e.g. ["github.com"] or ["github.com","api.github.com"]
+ * @returns {boolean}
+ */
+function isSafeUrlOnHosts(value, allowedHosts) {
   if (typeof value !== "string" || value.length === 0 || value.length > MAX_URL_LENGTH) {
     return false;
   }
   try {
     const url = new URL(value);
-    // Only https GitHub issue URLs. Blocks javascript:, data:, http, etc.
-    return url.protocol === "https:" && url.hostname === "github.com";
+    // Only https on an allowed host. Blocks javascript:, data:, http, etc.
+    return url.protocol === "https:" && allowedHosts.includes(url.hostname);
   } catch {
     return false;
   }
+}
+
+/**
+ * The issue link we render as an <a href>. Must be a real github.com issue URL.
+ * Kept strict because this is the one URL that becomes a clickable link.
+ */
+function isSafeIssueUrl(value) {
+  return isSafeUrlOnHosts(value, ["github.com"]);
+}
+
+/**
+ * The repository API URL. GitHub's search API returns this as
+ * "https://api.github.com/repos/{owner}/{repo}" — NOT github.com — so we accept
+ * the api.github.com host here too. It is only used to derive the repo name
+ * (never rendered as a link), so the allowlist is still a safe boundary.
+ */
+function isSafeRepositoryUrl(value) {
+  return isSafeUrlOnHosts(value, ["github.com", "api.github.com"]);
 }
 
 function isNonEmptyString(value, maxLength) {
@@ -51,14 +75,14 @@ export function validateIssuePayload(issue) {
     return null;
   }
 
-  if (!isSafeGithubUrl(issue.html_url)) {
+  if (!isSafeIssueUrl(issue.html_url)) {
     return null;
   }
 
-  // Optional repository_url, but if present it must be a safe https URL.
+  // Optional repository_url, but if present it must be a safe https GitHub URL.
   let repository_url = "";
   if (issue.repository_url != null && issue.repository_url !== "") {
-    if (!isSafeGithubUrl(issue.repository_url)) {
+    if (!isSafeRepositoryUrl(issue.repository_url)) {
       return null;
     }
     repository_url = issue.repository_url;
