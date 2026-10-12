@@ -1,18 +1,27 @@
 # OpenSource Radar 📡
 
-Find **real, available** open source issues to contribute to. No more "already taken" frustration.
+Find **real, available** open source issues to contribute to — and save the ones you
+want to work on. No more "already taken" frustration, no more losing that perfect
+issue you were "going to get to."
 
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![React](https://img.shields.io/badge/React-19-61DAFB)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC)
+![Auth.js](https://img.shields.io/badge/Auth.js-v5-purple)
+![Database](https://img.shields.io/badge/DB-Turso-4FF8D2)
 
 ## Features
 
-- 🔍 Browse issues labeled "good first issue", "beginner", "help wanted"
+- 🔍 **Browse contribution-ready issues** labeled "good first issue", "beginner", "help wanted", etc.
 - 🐙 **GitHub sign-in required** — no anonymous browsing; every search runs on your own account (30 searches/min, your own quota)
-- 🎯 Filter by programming language
-- ✅ See which issues are available (no assignees)
+- 🎯 **Curated collections** — hand-picked, mentor-rich orgs (GSoC, foundations, data/AI, infra, web) instead of random repos
+- 🔖 **Save issues** — bookmark the issues you want to work on and revisit them anytime at `/saved`
+- ☁️ **Cross-device saves** — saved issues are stored in a database keyed to your GitHub account, so they follow you across devices
+- 🌐 **Filter** by language, difficulty, freshness, and availability
+- ✅ See which issues are still available (no assignees)
 - ⏱️ View issue freshness and activity
-- 🔗 Direct links to GitHub
+- 📱 **Mobile-ready** — collapsible filters and a trimmed landing page so issues are front-and-center on phones
+- 🔐 **Security-first APIs** — auth-gated routes, strict input validation, per-user rate limiting, and parameterized queries
 
 ## Getting Started
 
@@ -20,7 +29,7 @@ Find **real, available** open source issues to contribute to. No more "already t
 # Install dependencies
 npm install
 
-# Configure GitHub OAuth (see below)
+# Configure environment variables (see below)
 cp .env.example .env.local
 
 # Run development server
@@ -28,6 +37,10 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> **Local dev needs no database setup.** With `TURSO_DATABASE_URL` unset, the app
+> automatically uses a local SQLite file at `data/radar.db` — so you can run and
+> test the entire save flow without any cloud account. See [Database](#database--saved-issues).
 
 ## Sign up with GitHub
 
@@ -68,10 +81,11 @@ There is **no anonymous browsing**. Two independent layers enforce it:
 
 | Layer | Behaviour |
 | --- | --- |
-| UI (`src/app/page.js`) | Signed out → the catalog is replaced by `SignInGate`; no request is ever made |
-| Server (`src/app/api/issues/route.js`) | No token in the session cookie → **`401` with `signInRequired: true`**, GitHub is never called |
+| UI (`src/app/page.js`, `src/app/saved/page.js`) | Signed out → the catalog / saved list is replaced by `SignInGate`; no request is ever made |
+| Server (`src/app/api/*/route.js`) | No token in the session cookie → **`401` with `signInRequired: true`**, GitHub and the database are never touched |
 
-So even a hand-crafted request to `/api/issues` with no session returns an error, never issues.
+So even a hand-crafted request to `/api/issues` or `/api/saved-issues` with no session
+returns an error, never data.
 
 ### How the token is used
 
@@ -92,16 +106,119 @@ contributor on their own quota:
 The requested scope is `read:user user:email` — read-only, so the token can never
 write to anyone's repositories.
 
-> Deploying? Register a second OAuth App for the production domain, point the
-> callback at `https://your-domain.com/api/auth/callback/github`, and set `AUTH_URL`
-> in your hosting provider's environment variables.
+## 🔖 Save Issues
+
+Save the issues you decide to work on and revisit them at **`/saved`**.
+
+- **Save** from any issue card (the bookmark button in the top-right corner).
+- The header shows a **Saved** link with a live count badge.
+- Saves update **optimistically** (the UI flips instantly) and roll back automatically
+  if the server request fails.
+- Everything is **keyed to your GitHub account**, so it follows you across devices —
+  not stuck in one browser.
+
+## Database (Saved Issues)
+
+Saved issues are stored server-side in a database keyed by your stable GitHub id
+(`src/lib/db.js`). The connection **auto-selects** based on environment:
+
+| Environment | Backing store |
+| --- | --- |
+| Local dev (no `TURSO_DATABASE_URL`) | Local SQLite file at `data/radar.db` — no account needed |
+| Production (serverless like Vercel) | [Turso](https://turso.tech) — SQLite-compatible, free tier |
+
+Turso speaks the same SQL as SQLite, so all queries are portable and only the
+connection handle changes between environments.
+
+### Setting up Turso (production)
+
+```bash
+# 1. Install the CLI and sign up
+turso auth signup            # or: turso auth login
+
+# 2. Create a database
+turso db create opensource-radar
+
+# 3. Create an auth token  -> TURSO_AUTH_TOKEN
+turso db tokens create opensource-radar
+
+# 4. Get the database URL   -> TURSO_DATABASE_URL
+turso db show opensource-radar --url
+```
+
+Then set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in your host's environment
+variables. The table and indexes are created automatically on first use.
+
+## API Routes
+
+All routes are **auth-gated** (401 without a session), **per-user scoped**, and
+**rate-limited**. Queries are fully parameterized (no SQL injection).
+
+| Method | Route | Purpose | Rate limit |
+| --- | --- | --- | --- |
+| `GET` | `/api/issues` | Proxy GitHub issue search on the user's token | (GitHub's own 30/min) |
+| `GET` | `/api/saved-issues` | List the current user's saved issues | 60/min per user |
+| `POST` | `/api/saved-issues` | Save (or re-save) an issue | 30/min per user |
+| `DELETE` | `/api/saved-issues/[id]` | Remove a saved issue | shares the 30/min write budget |
+
+**Input validation** (`src/lib/validateIssue.js`): every saved issue is validated
+before storage — numeric id, a safe `https://github.com/...` link (blocks
+`javascript:` / `data:` XSS vectors), a GitHub repository URL, and length caps.
+
+> **Rate limiter note:** the limiter is in-memory, so it's a hard per-user cap on a
+> single server, but per-instance on serverless. For a strict global limit, swap the
+> internal map for a shared store (e.g. Upstash/Redis) without changing route code.
+
+## Mobile & Responsive
+
+The app is fully responsive and tuned for phones:
+
+- Grids collapse to a single column; the landing page trims its decorative marketing
+  sections so the issue catalog is front-and-center.
+- The **filter panel is collapsible** on mobile (collapsed by default) so results
+  aren't buried below the fold.
+- Issue cards, pagination, and the save button all have comfortable tap targets.
 
 ## Tech Stack
 
-- **Framework**: Next.js (App Router)
-- **Styling**: Tailwind CSS
-- **Auth**: Auth.js v5 (`next-auth@beta`) + GitHub OAuth
+- **Framework**: Next.js 16 (App Router)
+- **UI**: React 19 + Tailwind CSS v4
+- **Auth**: Auth.js v5 (`next-auth@beta`) + GitHub OAuth (JWT sessions)
+- **Database**: Turso / libSQL (`@libsql/client`) for saved issues; local SQLite file in dev
 - **Data**: GitHub REST API (proxied server-side on the user's token)
+
+## Deployment
+
+This app deploys cleanly to **Vercel** (or any Node host). Because a file-based DB
+won't persist on serverless, use **Turso** in production (see above).
+
+1. **Push** your code to GitHub and **import** the repo on [vercel.com](https://vercel.com).
+2. Set these **Environment Variables** (Production):
+
+   | Key | Value |
+   | --- | --- |
+   | `AUTH_SECRET` | a fresh random 32-byte base64 string |
+   | `AUTH_GITHUB_ID` | from your **production** GitHub OAuth App |
+   | `AUTH_GITHUB_SECRET` | from your **production** GitHub OAuth App |
+   | `AUTH_TRUST_HOST` | `true` |
+   | `TURSO_DATABASE_URL` | from `turso db show ... --url` |
+   | `TURSO_AUTH_TOKEN` | from `turso db tokens create ...` |
+
+   Generate a secret with:
+   `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+3. Register a **production** GitHub OAuth App with the callback URL
+   `https://your-domain.com/api/auth/callback/github`.
+4. **Deploy.** Vercel auto-detects Next.js — no extra config needed.
+
+## Roadmap
+
+Planned next:
+
+- 🧭 **Contribution tracker** — add a status to each saved issue (`Saved → Working on it → PR submitted → Merged`) plus personal notes
+- 🔎 **"Still available?" check** — live re-check of issue state so you don't start work on an already-claimed or closed issue
+- 🔗 **Link your PR** — attach the PR you opened and build a contribution history/streak
+- 🌙 **True dark mode**
+- 🔔 Reminders for untouched saved issues
 
 ## License
 
