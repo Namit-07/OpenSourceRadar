@@ -688,6 +688,34 @@ a {
   margin-bottom: 1rem;
 }
 
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Mobile-only collapse toggle for the filter panel. Hidden on desktop. */
+.filter-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.filter-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.filter-panel-body {
+  display: block;
+}
+
 .panel-title {
   margin: 0;
   font-size: 0.84rem;
@@ -1485,12 +1513,26 @@ a {
     overflow: visible;
   }
 
+  /* Mobile: the filter panel becomes collapsible so results aren't pushed
+     below the fold. Collapsed by default; toggle expands it. */
+  .filter-toggle {
+    display: inline-flex;
+  }
+
+  .filter-panel:not(.is-open) .filter-panel-body {
+    display: none;
+  }
+
   .issue-list {
     grid-template-columns: 1fr;
   }
 
-  .issue-card--hero,
-  .issue-card--editorial {
+  /* The grid item is the card WRAPPER (it holds the save button), so the
+     hero/editorial "span 2" must be reset on the wrapper — resetting the inner
+     .issue-card does nothing and left these cards overflowing the single
+     column on phones. */
+  .issue-card-wrap--hero,
+  .issue-card-wrap--editorial {
     grid-column: span 1;
   }
 
@@ -1600,3 +1642,100 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Small-screen refinements for issues, save button, pagination --- */
+@media (max-width: 700px) {
+  /* The save-button text label is hidden at this width (see 560px rule), so the
+     button is icon-only. Shrink the space reserved for it in the card's top row
+     so titles/repo names get the full width back. */
+  .issue-top {
+    padding-right: 3rem;
+  }
+
+  /* Comfortable tap target for the icon-only save button. */
+  .save-button {
+    padding: 0.45rem;
+  }
+
+  .issue-title {
+    font-size: 1.35rem;
+  }
+
+  /* Pagination: spread prev/next across the width on narrow screens. */
+  .pagination {
+    gap: 0.5rem;
+  }
+
+  .pagination .button-ghost {
+    flex: 1;
+    text-align: center;
+  }
+
+  /* --- Trim the marketing landing page on mobile ---
+     On phones the four stacked marketing sections (hero, "The Edit", "Catalog
+     introduction") push the actual issues far below the fold. Keep a compact
+     intro, drop the decorative visuals, and get users to the catalog fast. */
+
+  /* Drop the decorative pill/doodle visual beside the hero copy. */
+  .landing-visual {
+    display: none;
+  }
+
+  /* Remove the "The Edit" collections strip entirely. */
+  .landing-collections {
+    display: none;
+  }
+
+  /* Remove the redundant "Catalog introduction" hero (the top hero already
+     introduces the product). */
+  .hero {
+    display: none;
+  }
+
+  /* Make hero/editorial issue cards render like standard cards on phones so the
+     catalog reads as a clean, uniform list (matching the saved page) instead of
+     one oversized card at the top. */
+  .issue-card--hero,
+  .issue-card--editorial {
+    padding: 0.9rem;
+    background: #fff;
+    border-color: var(--line);
+  }
+
+  .issue-card--hero .issue-title,
+  .issue-card--editorial .issue-title {
+    font-size: 1.35rem;
+  }
+
+  /* Tighten the remaining top hero into a compact banner. */
+  .landing-hero {
+    padding: 1.2rem 0 1.4rem;
+  }
+
+  .landing-title {
+    font-size: 1.85rem;
+  }
+
+  .landing-subtitle {
+    font-size: 0.95rem;
+  }
+
+  /* Keep the hero action buttons usable but compact. */
+  .landing-actions {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* The "Our story" button links to a section that's hidden on mobile, so hide
+     the link too rather than leave a dead jump target. */
+  .landing-story-link {
+    display: none;
+  }
+
+  /* Bring the catalog up closer now that the extra sections are gone. */
+  .catalog {
+    padding-top: 1.2rem;
+  }
+}
+
+

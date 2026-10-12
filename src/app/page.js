@@ -190,7 +190,7 @@ export default function Home() {
               </p>
               <div className="landing-actions motion-delay-4">
                 <a href="#catalog" className="button-solid">Shop issues</a>
-                <a href="#story" className="button-ghost">Our story</a>
+                <a href="#story" className="button-ghost landing-story-link">Our story</a>
                 <button
                   type="button"
                   onClick={() => setMonochromeMode((value) => !value)}
