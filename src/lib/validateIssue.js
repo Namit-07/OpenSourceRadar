@@ -7,10 +7,13 @@
  * a self-XSS vector). These checks keep stored data sane and safe.
  */
 
+import { DEFAULT_ISSUE_STATUS, ISSUE_STATUSES } from "@/utils/constants";
+
 const MAX_TITLE_LENGTH = 500;
 const MAX_URL_LENGTH = 500;
 const MAX_LABELS = 20;
 const MAX_ASSIGNEES = 20;
+const MAX_NOTES_LENGTH = 2000;
 
 /**
  * Validate a URL is https and on an allowed GitHub host.
@@ -52,6 +55,87 @@ function isSafeRepositoryUrl(value) {
 
 function isNonEmptyString(value, maxLength) {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength;
+}
+
+/**
+ * Validate a contribution-tracker status step.
+ *
+ * Server-side allowlist matching `ISSUE_STATUSES` in src/utils/constants.js.
+ * Client-supplied strings are never trusted into the database directly.
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isValidIssueStatus(value) {
+  return (
+    typeof value === "string" &&
+    ISSUE_STATUSES.some((entry) => entry.value === value)
+  );
+}
+
+/**
+ * Validate + return a safe copy of a tracker-fields payload (`status`,
+ * `notes`), or `null` when it fails validation.
+ *
+ * At least one of `status` / `notes` must be present. `notes` are plain text;
+ * React escapes them on render and IssueCard never injects them as HTML, so
+ * no allowlist applies — only a length cap.
+ *
+ * @param {unknown} updates - The raw payload from the request body.
+ * @returns {{ status?: string, notes?: string }|null}
+ */
+export function validateTrackerUpdate(updates) {
+  if (!updates || typeof updates !== "object" || Array.isArray(updates)) {
+    return null;
+  }
+
+  const result = {};
+  const hasStatus = updates.status !== undefined;
+  const hasNotes = updates.notes !== undefined;
+
+  if (!hasStatus && !hasNotes) {
+    return null;
+  }
+
+  if (hasStatus) {
+    if (!isValidIssueStatus(updates.status)) {
+      return null;
+    }
+    result.status = updates.status;
+  }
+
+  if (hasNotes) {
+    if (
+      typeof updates.notes !== "string" ||
+      updates.notes.length > MAX_NOTES_LENGTH
+    ) {
+      return null;
+    }
+    result.notes = updates.notes;
+  }
+
+  return result;
+}
+
+/**
+ * Validate a saved-issue's tracker fields coming from the full issue payload
+ * (e.g. a catalog issue record that already carries `status`/`notes`).
+ * Invalid or missing values fall back to safe defaults instead of failing,
+ * because the payload may come from GitHub-shaped data that has no tracker
+ * fields at all.
+ *
+ * @param {unknown} status
+ * @param {unknown} notes
+ * @returns {{ status: string, notes: string }}
+ */
+export function sanitizeTrackerFields(status, notes) {
+  const normalizedStatus = isValidIssueStatus(status)
+    ? status
+    : DEFAULT_ISSUE_STATUS;
+  const normalizedNotes =
+    typeof notes === "string" ? notes.slice(0, MAX_NOTES_LENGTH) : "";
+
+  return { status: normalizedStatus, notes: normalizedNotes };
 }
 
 /**

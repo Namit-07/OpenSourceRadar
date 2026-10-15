@@ -106,3 +106,29 @@ export function getContributionScope(value) {
   );
 }
 
+/**
+ * Contribution-tracker pipeline for a saved issue.
+ *
+ * `value` is what we store in the database (`saved_issues.status`) and send
+ * over the API; `label` is the human-facing step name. Every newly saved
+ * issue starts at `saved`.
+ */
+export const ISSUE_STATUSES = [
+  { value: "saved", label: "Saved" },
+  { value: "working", label: "Working on it" },
+  { value: "pr-submitted", label: "PR submitted" },
+  { value: "merged", label: "Merged" },
+];
+
+export const DEFAULT_ISSUE_STATUS = "saved";
+
+/**
+ * Coerce any stored value to a known pipeline step, falling back to the
+ * default. Guards the UI against legacy rows and hand-edited data.
+ */
+export function normalizeIssueStatus(value) {
+  return ISSUE_STATUSES.some((entry) => entry.value === value)
+    ? value
+    : DEFAULT_ISSUE_STATUS;
+}
+

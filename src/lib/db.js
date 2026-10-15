@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createClient } from "@libsql/client";
+import { DEFAULT_ISSUE_STATUS } from "@/utils/constants";
 
 /**
  * Server-side persistence for saved issues.
@@ -73,9 +74,30 @@ async function ensureSchema() {
       updated_at    TEXT,
       labels        TEXT    NOT NULL DEFAULT '[]',
       assignees     TEXT    NOT NULL DEFAULT '[]',
-      saved_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+      saved_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      -- Contribution tracker: which pipeline step the issue is at, plus the
+      -- contributor's personal notes ("why I picked this / my approach").
+      status        TEXT    NOT NULL DEFAULT 'saved',
+      notes         TEXT    NOT NULL DEFAULT ''
     );
   `);
+
+  // Migrate databases created before the tracker columns existed. New
+  // databases get the columns from CREATE TABLE above; this loop upgrades
+  // legacy rows in place without touching their data. Add future columns
+  // here the same way (ALTER TABLE has no IF NOT EXISTS in SQLite).
+  for (const column of [
+    { name: "status", definition: "TEXT NOT NULL DEFAULT 'saved'" },
+    { name: "notes", definition: "TEXT NOT NULL DEFAULT ''" },
+  ]) {
+    const tableInfo = await db.execute("PRAGMA table_info(saved_issues)");
+    const hasColumn = tableInfo.rows.some((row) => row.name === column.name);
+    if (!hasColumn) {
+      await db.execute(
+        `ALTER TABLE saved_issues ADD COLUMN ${column.name} ${column.definition}`
+      );
+    }
+  }
 
   await db.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_issues_user_issue
@@ -111,6 +133,8 @@ function rowToIssue(row) {
     updated_at: row.updated_at,
     labels: safeParse(row.labels, []),
     assignees: safeParse(row.assignees, []),
+    status: typeof row.status === "string" ? row.status : DEFAULT_ISSUE_STATUS,
+    notes: typeof row.notes === "string" ? row.notes : "",
   };
 }
 
@@ -133,6 +157,11 @@ export async function listSavedIssues(githubId) {
 /**
  * Insert a saved issue for a user. Idempotent: re-saving an existing issue
  * updates its snapshot in place instead of erroring.
+ *
+ * IMPORTANT: the upsert deliberately does NOT touch `status`/`notes`. A
+ * re-save is a snapshot refresh from GitHub-shaped data, and must never wipe
+ * the contributor's tracker progress.
+ *
  * @returns {Promise<object>} The normalized issue record.
  */
 export async function saveIssue(githubId, issue) {
@@ -159,13 +188,18 @@ export async function saveIssue(githubId, issue) {
     comments: issue.comments ?? 0,
     created_at: issue.created_at ?? null,
     updated_at: issue.updated_at ?? null,
+    // Freshly saved issues always start at the first pipeline step with empty
+    // notes. Re-saves preserve existing values via the upsert below, which
+    // excludes these columns on purpose.
+    status: issue.status ?? DEFAULT_ISSUE_STATUS,
+    notes: issue.notes ?? "",
   };
 
   await db.execute({
     sql: `INSERT INTO saved_issues
        (id, github_id, number, title, html_url, repository_url, comments,
-        created_at, updated_at, labels, assignees, saved_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        created_at, updated_at, labels, assignees, saved_at, status, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
      ON CONFLICT (github_id, id) DO UPDATE SET
        number = excluded.number,
        title = excluded.title,
@@ -189,10 +223,61 @@ export async function saveIssue(githubId, issue) {
       record.updated_at,
       labels,
       assignees,
+      record.status,
+      record.notes,
     ],
   });
 
   return { ...record, labels: JSON.parse(labels), assignees: JSON.parse(assignees) };
+}
+
+/**
+ * Update one saved issue's tracker fields (`status` and/or `notes`) for a
+ * user. Only the keys present in `updates` are written; anything else is
+ * left untouched.
+ *
+ * @param {string} githubId - Stable GitHub user id.
+ * @param {number|string} issueId - The GitHub issue id.
+ * @param {{ status?: string, notes?: string }} updates - Validated fields.
+ * @returns {Promise<object|null>} The updated issue record, or null when no
+ *   such saved issue exists for this user.
+ */
+export async function updateSavedIssue(githubId, issueId, updates) {
+  await ensureSchema();
+  const db = getClient();
+
+  const assignments = [];
+  const args = [];
+
+  if (updates.status !== undefined) {
+    assignments.push("status = ?");
+    args.push(updates.status);
+  }
+
+  if (updates.notes !== undefined) {
+    assignments.push("notes = ?");
+    args.push(updates.notes);
+  }
+
+  if (assignments.length === 0) {
+    return null;
+  }
+
+  await db.execute({
+    sql: `UPDATE saved_issues SET ${assignments.join(", ")} WHERE github_id = ? AND id = ?`,
+    args: [...args, githubId, Number(issueId)],
+  });
+
+  const result = await db.execute({
+    sql: "SELECT * FROM saved_issues WHERE github_id = ? AND id = ?",
+    args: [githubId, Number(issueId)],
+  });
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return rowToIssue(result.rows[0]);
 }
 
 /**

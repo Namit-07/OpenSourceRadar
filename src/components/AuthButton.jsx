@@ -16,6 +16,10 @@ export default function AuthButton() {
       <button
         type="button"
         className="github-button"
+        // The server renders the anonymous state ("Sign up"); the client may
+        // already hold a session cookie and render the user chip instead.
+        // That divergence is expected — suppress the hydration warning.
+        suppressHydrationWarning
         onClick={() => signIn("github", { callbackUrl: window.location.href })}
       >
         <GitHubMark />
@@ -27,7 +31,7 @@ export default function AuthButton() {
   const { name, login, avatarUrl } = session.user;
 
   return (
-    <div className="auth-user">
+    <div className="auth-user" suppressHydrationWarning>
       {avatarUrl ? (
         <Image
           className="auth-avatar"

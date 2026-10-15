@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getGithubId } from "@/lib/session";
 import { listSavedIssues, saveIssue } from "@/lib/db";
-import { validateIssuePayload } from "@/lib/validateIssue";
+import { sanitizeTrackerFields, validateIssuePayload } from "@/lib/validateIssue";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -72,8 +72,13 @@ export async function POST(request) {
     );
   }
 
+  // Tracker fields ride along on the issue payload but are sanitized
+  // tolerantly: catalog-shaped data may carry none (defaults apply) or
+  // stale ones (fall back to safe values) without failing the save.
+  const tracker = sanitizeTrackerFields(body?.issue?.status, body?.issue?.notes);
+
   try {
-    const saved = await saveIssue(githubId, issue);
+    const saved = await saveIssue(githubId, { ...issue, ...tracker });
     return NextResponse.json({ item: saved }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

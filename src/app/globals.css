@@ -17,6 +17,17 @@
   --surface-elevated: #ffffff;
 }
 
+/* --- Dark theme: flipped ink/surface ramp, applied via <html class>. --- */
+:root.dark-mode {
+  --ink: #ececea;
+  --ink-soft: #a3a3a0;
+  --line: #2c2c2e;
+  --surface: #101012;
+  --surface-elevated: #1a1a1d;
+  --accent: #f2f2f0;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -120,7 +131,7 @@ a {
 
 .hero-shell {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-elevated);
   padding: 1.2rem;
 }
 
@@ -517,7 +528,7 @@ a {
 
 .collection-card {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-elevated);
   padding: 1rem;
   min-height: 200px;
   position: relative;
@@ -700,7 +711,7 @@ a {
   align-items: center;
   gap: 0.35rem;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-elevated);
   padding: 0.4rem 0.6rem;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
@@ -752,7 +763,7 @@ a {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 0;
-  background: #fff;
+  background: var(--surface-elevated);
   color: var(--ink);
   padding: 0.62rem 0.72rem;
   font-size: 0.92rem;
@@ -859,7 +870,7 @@ a {
 
 .button-ghost {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-elevated);
   color: var(--ink);
 }
 
@@ -1036,18 +1047,32 @@ a {
 
 /* Wrapper so a save button can sit alongside the card's <a> without nesting an
    interactive element inside another. It is the real grid item, so the hero /
-   editorial "span 2" behaviour lives here. */
+   editorial "span 2" behaviour lives here. Flex column so the card fills the
+   row while an attached tracker footer keeps its natural height — without
+   this, the card's old height:100% counted the tracker too, stretching a
+   blank gap into the card and spilling the tracker over the next row (where
+   later position:relative cards painted over it). */
 .issue-card-wrap {
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* The card root is an <a> (inline by default). It used to be a direct grid
    child, which auto-blockified it; now that it sits inside this wrapper it
    must be told to fill the wrapper as a block, otherwise borders/background
-   collapse and the list layout breaks. */
+   collapse and the list layout breaks. flex:1 lets it share the wrapper
+   height with the tracker footer instead of overflowing behind neighbours. */
 .issue-card-wrap > .issue-card {
   display: block;
-  height: 100%;
+  height: auto;
+  flex: 1 1 auto;
+}
+
+/* A hovered/expanded card (and its tracker) must paint above the following
+   row rather than slide underneath it. */
+.issue-card-wrap:hover {
+  z-index: 2;
 }
 
 .issue-card-wrap--hero,
@@ -1065,7 +1090,7 @@ a {
   align-items: center;
   gap: 0.3rem;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-elevated);
   color: var(--ink);
   padding: 0.3rem 0.5rem;
   font-size: 0.66rem;
@@ -1146,7 +1171,7 @@ a {
 .issue-card {
   border: 1px solid var(--line);
   padding: 0.9rem;
-  background: #fff;
+  background: var(--surface-elevated);
   position: relative;
   transition:
     transform 220ms ease,
@@ -1166,7 +1191,7 @@ a {
 
 .issue-card--editorial {
   border-color: #d7d6d1;
-  background: #fbfaf8;
+  background: var(--surface-elevated);
   grid-column: span 2;
 }
 
@@ -1267,13 +1292,14 @@ a {
 }
 
 .featured-label--soft {
-  background: #fff;
-  color: #191919;
-  border-color: #d3d3ce;
+  background: var(--surface-elevated);
+  color: var(--ink);
+  border-color: var(--line);
 }
 
 .label-chip {
   border: 1px solid var(--line);
+  background: var(--surface);
   font-size: 0.66rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1735,6 +1761,539 @@ a {
   /* Bring the catalog up closer now that the extra sections are gone. */
   .catalog {
     padding-top: 1.2rem;
+  }
+}
+
+/* Status pill on issue cards: mirrors the pipeline step of a saved issue so it
+   is visible in the catalog too, not just on /saved. Compact uppercase chip
+   matching the availability pills. */
+.tracker-pill {
+  display: inline-block;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: #111;
+  border-color: #111;
+  color: #fff;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.tracker-pill--saved {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+.tracker-pill--working {
+  background: #fdf3e3;
+  border-color: #e3c99a;
+  color: #8a5c14;
+}
+
+.tracker-pill--pr-submitted {
+  background: #e9f0fb;
+  border-color: #b9cbe8;
+  color: #2f4f8f;
+}
+
+.tracker-pill--merged {
+  background: #e7f4ea;
+  border-color: #b3d4ba;
+  color: #2f6b3a;
+}
+
+/* --- Contribution tracker (status + notes) on the /saved page --- */
+
+/* Filter chips above the saved list. Same uppercase, bordered language as the
+   rest of the UI; the active chip is filled dark like the saved save-button. */
+.saved-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.tracker-filter {
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  color: var(--ink);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.tracker-filter:hover {
+  background: #f3f2ef;
+  border-color: #c8c7c2;
+}
+
+.tracker-filter--active {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
+.tracker-filter:focus-visible,
+.tracker-step:focus-visible,
+.tracker-notes-input:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+/* Tracker panel: a footer attached to the saved issue card, sitting outside
+   the card's <a> so its buttons/textarea stay valid interactive HTML. */
+.issue-card-wrap > .tracker-panel {
+  margin-top: -1px;
+  border: 1px solid var(--line);
+  border-top-style: dashed;
+  background: var(--surface);
+  padding: 0.75rem 0.9rem 0.85rem;
+  display: grid;
+  gap: 0.7rem;
+  /* The panel is the last thing in its grid cell: keep it painted above the
+     following row's cards (all position:relative) so notes/steps are never
+     hidden behind a neighbour. */
+  position: relative;
+  z-index: 1;
+}
+
+/* Status pipeline: four steps in a row, collapsing to 2x2 on narrow cards. */
+.tracker-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.tracker-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  color: var(--ink-soft);
+  padding: 0.45rem 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.tracker-step:hover {
+  background: #f3f2ef;
+  border-color: #c8c7c2;
+  color: var(--ink);
+}
+
+.tracker-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.2rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+
+.tracker-step--done {
+  color: var(--ink);
+  background: #f6fbf4;
+  border-color: #c9d5c7;
+}
+
+.tracker-step--active {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
+.tracker-step--active:hover {
+  background: #232323;
+  color: #fff;
+}
+
+.tracker-notes {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tracker-notes-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.tracker-notes-hint {
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.78rem;
+}
+
+.tracker-notes-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.2rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.55rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.tracker-notes-input::placeholder {
+  color: #a3a3a3;
+}
+
+.tracker-notes-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  min-height: 1.1rem;
+}
+
+.tracker-save-state--saving {
+  color: var(--ink-soft);
+}
+
+.tracker-save-state--saved {
+  color: #3d7a3d;
+}
+
+.tracker-save-state--error {
+  color: #a33b3b;
+}
+
+.tracker-char-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .tracker-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tracker-step-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .issue-card-wrap > .tracker-panel {
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+}
+
+/* --- Theme toggle (dark-mode switch in the hero actions row). Matches the
+   ghost-button language so it sits naturally beside "Our story". --- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  padding: 0.7rem 1rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.theme-toggle:hover {
+  background: #f0efec;
+}
+
+:root.dark-mode .theme-toggle:hover {
+  background: #26262a;
+}
+
+.theme-toggle-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.theme-toggle-label {
+  line-height: 1;
+}
+
+/* --- Dark-mode overrides for hard-coded light surfaces --- */
+:root.dark-mode .topbar {
+  background: rgba(16, 16, 18, 0.92);
+}
+
+:root.dark-mode .hero-shell,
+:root.dark-mode .collection-card,
+:root.dark-mode .filter-toggle,
+:root.dark-mode .text-input,
+:root.dark-mode .select-input,
+:root.dark-mode .save-button,
+:root.dark-mode .tracker-filter,
+:root.dark-mode .tracker-step,
+:root.dark-mode .tracker-notes-input,
+:root.dark-mode .issue-card,
+:root.dark-mode .issue-card--hero,
+:root.dark-mode .issue-card--editorial,
+:root.dark-mode .featured-label--soft {
+  background: var(--surface-elevated);
+}
+
+:root.dark-mode .landing-collections {
+  background: #141416;
+}
+
+:root.dark-mode .landing-visual-main,
+:root.dark-mode .landing-visual-side {
+  background: linear-gradient(160deg, #1c1c1f 0%, #141416 100%);
+}
+
+:root.dark-mode .mono-mode .landing-visual-main,
+:root.dark-mode .mono-mode .landing-visual-side {
+  background: linear-gradient(160deg, #1c1c1f 0%, #141416 100%);
+}
+
+:root.dark-mode .campaign-card,
+:root.dark-mode .campaign-card--side,
+:root.dark-mode .floating-pill,
+:root.dark-mode .mono-mode .campaign-card,
+:root.dark-mode .mono-mode .floating-pill {
+  background: rgba(26, 26, 29, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+:root.dark-mode .pill-preview {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root.dark-mode .button-ghost {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root.dark-mode .button-ghost:hover {
+  background: #26262a;
+  border-color: #3a3a3e;
+  color: var(--ink);
+}
+
+:root.dark-mode .ghost-link {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root.dark-mode .ghost-link:hover,
+:root.dark-mode .saved-nav:hover {
+  background: #26262a;
+}
+
+:root.dark-mode .save-button:hover,
+:root.dark-mode .tracker-filter:hover,
+:root.dark-mode .tracker-step:hover {
+  background: #26262a;
+  border-color: #3a3a3e;
+  color: var(--ink);
+}
+
+:root.dark-mode .issue-card:hover {
+  background: #202024;
+  border-color: #3a3a3e;
+}
+
+:root.dark-mode .issue-card--hero {
+  border-color: #333336;
+  background: linear-gradient(180deg, #1d1d20 0%, #161618 100%);
+}
+
+:root.dark-mode .issue-card--hero:hover {
+  background: linear-gradient(180deg, #222226 0%, #19191c 100%);
+}
+
+:root.dark-mode .issue-card--editorial,
+:root.dark-mode .issue-card--editorial:hover {
+  background: #1a1a1d;
+}
+
+:root.dark-mode .issue-title {
+  color: var(--ink);
+}
+
+:root.dark-mode .button-solid,
+:root.dark-mode .github-button,
+:root.dark-mode .save-button--saved,
+:root.dark-mode .saved-nav-badge,
+:root.dark-mode .quota-chip--token,
+:root.dark-mode .featured-label,
+:root.dark-mode .tracker-filter--active,
+:root.dark-mode .tracker-step--active,
+:root.dark-mode .tracker-pill {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #101012;
+}
+
+:root.dark-mode .button-solid:hover,
+:root.dark-mode .github-button:hover,
+:root.dark-mode .save-button--saved:hover,
+:root.dark-mode .tracker-step--active:hover {
+  background: #d8d8d4;
+}
+
+:root.dark-mode .featured-label--soft {
+  background: #26262a;
+  color: #ececea;
+  border-color: #4a4a4f;
+}
+
+:root.dark-mode .text-input:focus,
+:root.dark-mode .select-input:focus,
+:root.dark-mode .save-button:focus-visible,
+:root.dark-mode .tracker-step:focus-visible,
+:root.dark-mode .tracker-notes-input:focus-visible {
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+
+/* Native dropdown options ignore the input's colors and fall back to the
+   OS white popup — unreadable in dark mode unless restyled. */
+:root.dark-mode select option {
+  background: var(--surface-elevated);
+  color: var(--ink);
+}
+
+/* Native checkboxes/radios keep the OS light control unless hinted. */
+:root.dark-mode input[type="checkbox"],
+:root.dark-mode input[type="radio"] {
+  color-scheme: dark;
+}
+
+:root.dark-mode .availability-pill--open {
+  background: rgba(63, 122, 74, 0.22);
+  border-color: rgba(120, 180, 130, 0.5);
+}
+
+:root.dark-mode .tracker-step--done {
+  background: rgba(63, 122, 74, 0.18);
+  border-color: rgba(120, 180, 130, 0.45);
+}
+
+:root.dark-mode .tracker-pill--saved {
+  background: var(--surface-elevated);
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+:root.dark-mode .tracker-pill--working {
+  background: rgba(227, 160, 60, 0.18);
+  border-color: rgba(227, 160, 60, 0.5);
+  color: #e8b96a;
+}
+
+:root.dark-mode .tracker-pill--pr-submitted {
+  background: rgba(110, 150, 220, 0.2);
+  border-color: rgba(110, 150, 220, 0.5);
+  color: #9db9e8;
+}
+
+:root.dark-mode .tracker-pill--merged {
+  background: rgba(63, 122, 74, 0.22);
+  border-color: rgba(120, 180, 130, 0.5);
+  color: #8fce98;
+}
+
+:root.dark-mode .saved-skeleton {
+  background: linear-gradient(180deg, #1a1a1d 0%, #141416 100%);
+}
+
+:root.dark-mode .skeleton-card {
+  background: linear-gradient(90deg, #1c1c1f 25%, #26262a 37%, #1c1c1f 63%);
+}
+
+:root.dark-mode .skeleton-line {
+  background: #2c2c2e;
+}
+
+:root.dark-mode .campaign-copy,
+:root.dark-mode .landing-visual-main span,
+:root.dark-mode .landing-visual-side span,
+:root.dark-mode .campaign-ticker span {
+  color: var(--ink-soft);
+}
+
+:root.dark-mode .campaign-eyebrow {
+  color: var(--ink-soft);
+}
+
+:root.dark-mode .doodle-circle {
+  border-color: rgba(236, 236, 234, 0.32);
+}
+
+:root.dark-mode .doodle-wave {
+  border-top-color: rgba(236, 236, 234, 0.35);
+  border-bottom-color: rgba(236, 236, 234, 0.25);
+}
+
+:root.dark-mode .doodle-zig {
+  background: repeating-linear-gradient(
+    -35deg,
+    rgba(236, 236, 234, 0.4),
+    rgba(236, 236, 234, 0.4) 12px,
+    transparent 12px,
+    transparent 24px
+  );
+}
+
+:root.dark-mode .doodle-note {
+  color: rgba(236, 236, 234, 0.56);
+}
+
+:root.dark-mode .tracker-notes-input::placeholder {
+  color: #6b6b68;
+}
+
+:root.dark-mode .tracker-save-state--saved {
+  color: #8fce98;
+}
+
+:root.dark-mode .tracker-save-state--error {
+  color: #e89a9a;
+}
+
+/* Mobile dark fixes: the phone stylesheet hard-codes white hero/editorial
+   cards, which would flash light inside an otherwise dark catalog. */
+@media (max-width: 700px) {
+  :root.dark-mode .issue-card--hero,
+  :root.dark-mode .issue-card--editorial {
+    background: var(--surface-elevated);
+    border-color: var(--line);
   }
 }
 

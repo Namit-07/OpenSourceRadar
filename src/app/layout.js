@@ -20,6 +20,9 @@ const bodyFont = DM_Sans({
 export const metadata = {
   title: "OpenSource Radar",
   description: "Find real, available open source issues to contribute to",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default async function RootLayout({ children }) {
@@ -36,8 +39,17 @@ export default async function RootLayout({ children }) {
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${headingFont.variable} ${bodyFont.variable} app-body`}>
+        {/* Theme bootstrap: a plain (non-client) <script> is allowed directly
+            in the root layout. Runs before hydration so a stored dark
+            preference never flashes light; ThemeToggle owns the class after. */}
+        <script
+          id="osr-theme"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem("osr-theme");var d=s==="dark"||(!s&&matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark-mode");}catch(e){}})();`,
+          }}
+        />
         <SessionProvider session={session}>
           <SavedIssuesProvider>{children}</SavedIssuesProvider>
         </SessionProvider>

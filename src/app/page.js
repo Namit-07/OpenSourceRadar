@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import FilterSidebar from "@/components/FilterSidebar";
 import IssueList from "@/components/IssueList";
 import SignInGate from "@/components/SignInGate";
+import ThemeToggle from "@/components/ThemeToggle";
 import { searchIssues } from "@/lib/github";
 import { DEFAULT_SCOPE } from "@/utils/constants";
 
@@ -19,7 +20,6 @@ export default function Home() {
   const [reauthRequired, setReauthRequired] = useState(false);
   const [rateLimit, setRateLimit] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [monochromeMode, setMonochromeMode] = useState(false);
   const [bridgeVisible, setBridgeVisible] = useState(false);
   const [filters, setFilters] = useState({
     keyword: "",
@@ -176,7 +176,7 @@ export default function Home() {
   };
 
   return (
-    <div className={monochromeMode ? "mono-mode" : ""}>
+    <div>
       <Header />
       <main>
         <section className="landing-hero">
@@ -191,13 +191,7 @@ export default function Home() {
               <div className="landing-actions motion-delay-4">
                 <a href="#catalog" className="button-solid">Shop issues</a>
                 <a href="#story" className="button-ghost landing-story-link">Our story</a>
-                <button
-                  type="button"
-                  onClick={() => setMonochromeMode((value) => !value)}
-                  className="button-ghost"
-                >
-                  {monochromeMode ? "Color mode" : "Monochrome mode"}
-                </button>
+                <ThemeToggle />
               </div>
             </div>
             <div className="landing-visual motion-up motion-delay-2" aria-hidden="true">

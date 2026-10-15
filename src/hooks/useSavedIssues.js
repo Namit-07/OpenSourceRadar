@@ -127,6 +127,77 @@ export function useSavedIssues() {
 
   const isSaved = useCallback((id) => savedIds.has(id), [savedIds]);
 
+  /**
+   * Update one saved issue's tracker fields (`status` and/or `notes`) with
+   * an optimistic local write, reconciled against the server response and
+   * rolled back on failure — the same pattern as toggleSave.
+   *
+   * @param {number|string} id - The saved issue's GitHub id.
+   * @param {{ status?: string, notes?: string }} updates
+   * @returns {Promise<boolean>} Whether the server accepted the update.
+   */
+  const updateSavedIssue = useCallback(
+    async (id, updates) => {
+      if (!updates || typeof updates !== "object") {
+        return false;
+      }
+
+      const hasStatus = updates.status !== undefined;
+      const hasNotes = updates.notes !== undefined;
+
+      if (!hasStatus && !hasNotes) {
+        return false;
+      }
+
+      let previous = null;
+
+      setSavedIssues((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) {
+            return item;
+          }
+          previous = item;
+          return { ...item, ...(hasStatus ? { status: updates.status } : null), ...(hasNotes ? { notes: updates.notes } : null) };
+        })
+      );
+
+      if (!previous) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(`/api/saved-issues/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(hasStatus ? { status: updates.status } : null),
+            ...(hasNotes ? { notes: updates.notes } : null),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update");
+        }
+
+        const payload = await response.json();
+        if (payload?.item) {
+          // Replace the optimistic entry with the server's canonical record.
+          setSavedIssues((prev) =>
+            prev.map((item) => (item.id === id ? payload.item : item))
+          );
+        }
+        return true;
+      } catch {
+        // Roll back to the pre-update snapshot so the UI reflects truth.
+        setSavedIssues((prev) =>
+          prev.map((item) => (item.id === id ? previous : item))
+        );
+        return false;
+      }
+    },
+    []
+  );
+
   return {
     savedIssues,
     savedIds,
@@ -137,6 +208,7 @@ export function useSavedIssues() {
     toggleSave,
     unsaveIssue,
     isSaved,
+    updateSavedIssue,
   };
 }
 

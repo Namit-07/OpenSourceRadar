@@ -1,10 +1,18 @@
 import { formatDistanceToNow } from "@/utils/dateUtils";
+import { ISSUE_STATUSES, normalizeIssueStatus } from "@/utils/constants";
 import SaveButton from "./SaveButton";
 
-export default function IssueCard({ issue, variant = "standard" }) {
+export default function IssueCard({ issue, variant = "standard", footer = null }) {
   const repoUrl = issue.repository_url;
   const repoName = repoUrl ? repoUrl.split("/").slice(-2).join("/") : "Unknown";
   const hasAssignees = issue.assignees && issue.assignees.length > 0;
+  // Tracker status, when present (saved issues carry it; fresh catalog results
+  // get it merged in by the catalog page from the saved store). Shown as a
+  // pill so the pipeline step is visible on every saved card, everywhere.
+  const trackerStatus = issue.status ?? null;
+  const trackerEntry = trackerStatus
+    ? (ISSUE_STATUSES.find((entry) => entry.value === normalizeIssueStatus(trackerStatus)) ?? null)
+    : null;
   const isHero = variant === "hero";
   const isEditorial = variant === "editorial";
   const wrapVariant = isHero
@@ -27,6 +35,11 @@ export default function IssueCard({ issue, variant = "standard" }) {
 
           <div className="issue-top">
             <span className="issue-repo">{repoName}</span>
+              {trackerEntry && (
+                <span className={`tracker-pill tracker-pill--${trackerEntry.value}`}>
+                  {trackerEntry.label}
+                </span>
+              )}
               {!hasAssignees && (
                 <span className="availability-pill availability-pill--open">
                   Available
@@ -66,6 +79,9 @@ export default function IssueCard({ issue, variant = "standard" }) {
       </a>
       {/* Sibling of the anchor (not nested inside it) — see SaveButton notes. */}
       <SaveButton issue={issue} />
+      {/* Optional footer (e.g. the contribution tracker on /saved), also kept
+          outside the anchor so its buttons/inputs stay valid interactive HTML. */}
+      {footer}
     </div>
   );
 }

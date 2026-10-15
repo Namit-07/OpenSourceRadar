@@ -1,5 +1,10 @@
+"use client";
+
+import { useMemo } from "react";
 import IssueCard from "./IssueCard";
 import LoadingSkeleton from "./LoadingSkeleton";
+import { useSavedIssuesContext } from "@/context/SavedIssuesContext";
+import { DEFAULT_ISSUE_STATUS } from "@/utils/constants";
 
 export default function IssueList({
   issues,
@@ -19,6 +24,27 @@ export default function IssueList({
   const endIndex = issues.length > 0 ? startIndex + issues.length - 1 : 0;
   const hasPreviousPage = currentPage > 1;
   const hasNextPage = currentPage * perPage < totalCount;
+  // Fresh GitHub results carry no tracker fields, so overlay the pipeline
+  // status (and notes) from the saved store. That way every saved card — in
+  // the catalog, not just on /saved — shows its current step.
+  const { savedIssues } = useSavedIssuesContext();
+  const issuesWithTracker = useMemo(() => {
+    if (!savedIssues || savedIssues.length === 0) {
+      return issues;
+    }
+    const byId = new Map(savedIssues.map((saved) => [saved.id, saved]));
+    return issues.map((issue) => {
+      const saved = byId.get(issue.id);
+      if (!saved) {
+        return issue;
+      }
+      return {
+        ...issue,
+        status: saved.status ?? DEFAULT_ISSUE_STATUS,
+        notes: saved.notes ?? "",
+      };
+    });
+  }, [issues, savedIssues]);
 
   const getVariant = (index) => {
     if (index === 0) {
@@ -91,7 +117,7 @@ export default function IssueList({
       </div>
 
       <div className="issue-list">
-        {issues.map((issue, index) => (
+        {issuesWithTracker.map((issue, index) => (
           <IssueCard
             key={issue.id}
             issue={issue}
