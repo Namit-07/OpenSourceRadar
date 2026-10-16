@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 /**
@@ -22,6 +22,8 @@ export function useSavedIssues() {
 
   const [savedIssues, setSavedIssues] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Guards against overlapping PR-sync requests (e.g. /saved mounting twice).
+  const syncInFlightRef = useRef(false);
 
   // Load the saved list whenever the user is signed in; clear it otherwise.
   useEffect(() => {
@@ -128,12 +130,12 @@ export function useSavedIssues() {
   const isSaved = useCallback((id) => savedIds.has(id), [savedIds]);
 
   /**
-   * Update one saved issue's tracker fields (`status` and/or `notes`) with
-   * an optimistic local write, reconciled against the server response and
-   * rolled back on failure — the same pattern as toggleSave.
+   * Update one saved issue's tracker fields (`status`, `notes` and/or
+   * `pr_url`) with an optimistic local write, reconciled against the server
+   * response and rolled back on failure — the same pattern as toggleSave.
    *
    * @param {number|string} id - The saved issue's GitHub id.
-   * @param {{ status?: string, notes?: string }} updates
+   * @param {{ status?: string, notes?: string, pr_url?: string }} updates
    * @returns {Promise<boolean>} Whether the server accepted the update.
    */
   const updateSavedIssue = useCallback(
@@ -144,8 +146,9 @@ export function useSavedIssues() {
 
       const hasStatus = updates.status !== undefined;
       const hasNotes = updates.notes !== undefined;
+      const hasPrUrl = updates.pr_url !== undefined;
 
-      if (!hasStatus && !hasNotes) {
+      if (!hasStatus && !hasNotes && !hasPrUrl) {
         return false;
       }
 
@@ -157,7 +160,12 @@ export function useSavedIssues() {
             return item;
           }
           previous = item;
-          return { ...item, ...(hasStatus ? { status: updates.status } : null), ...(hasNotes ? { notes: updates.notes } : null) };
+          return {
+            ...item,
+            ...(hasStatus ? { status: updates.status } : null),
+            ...(hasNotes ? { notes: updates.notes } : null),
+            ...(hasPrUrl ? { pr_url: updates.pr_url } : null),
+          };
         })
       );
 
@@ -172,6 +180,7 @@ export function useSavedIssues() {
           body: JSON.stringify({
             ...(hasStatus ? { status: updates.status } : null),
             ...(hasNotes ? { notes: updates.notes } : null),
+            ...(hasPrUrl ? { pr_url: updates.pr_url } : null),
           }),
         });
 
@@ -198,6 +207,48 @@ export function useSavedIssues() {
     []
   );
 
+  /**
+   * Ask the server to detect PRs for saved issues that are still in the
+   * pipeline (saved / working) and auto-advance their status to
+   * pr-submitted / merged. The server does the GitHub lookups; this merges
+   * any updated records back into the shared store so the UI (tracker, pills,
+   * filters) reflects the new state everywhere.
+   *
+   * @returns {Promise<object[]>} The issues whose status/link changed.
+   */
+  const syncSavedIssues = useCallback(async () => {
+    if (syncInFlightRef.current) {
+      return [];
+    }
+    syncInFlightRef.current = true;
+    try {
+      const response = await fetch("/api/saved-issues/sync-pr-status", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const payload = await response.json();
+      const updatedItems = payload?.updated ?? [];
+
+      if (updatedItems.length > 0) {
+        setSavedIssues((prev) => {
+          const byId = new Map(updatedItems.map((item) => [item.id, item]));
+          return prev.map((item) => byId.get(item.id) ?? item);
+        });
+      }
+
+      return updatedItems;
+    } catch {
+      return [];
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, []);
+
   return {
     savedIssues,
     savedIds,
@@ -209,6 +260,7 @@ export function useSavedIssues() {
     unsaveIssue,
     isSaved,
     updateSavedIssue,
+    syncSavedIssues,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
@@ -9,6 +9,7 @@ import SavedIssueTracker from "@/components/SavedIssueTracker";
 import SignInGate from "@/components/SignInGate";
 import { useSavedIssuesContext } from "@/context/SavedIssuesContext";
 import { ISSUE_STATUSES, normalizeIssueStatus } from "@/utils/constants";
+import { computeContributionStats } from "@/utils/stats";
 
 /**
  * A user's saved issues — the ones they've decided to work on.
@@ -23,12 +24,36 @@ import { ISSUE_STATUSES, normalizeIssueStatus } from "@/utils/constants";
  */
 export default function SavedIssuesPage() {
   const { status: sessionStatus } = useSession();
-  const { savedIssues, hydrated } = useSavedIssuesContext();
+  const { savedIssues, hydrated, syncSavedIssues } = useSavedIssuesContext();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [syncing, setSyncing] = useState(false);
 
   const sessionReady = sessionStatus !== "loading";
   const signedIn = sessionStatus === "authenticated";
   const showGate = sessionReady && !signedIn;
+
+  // Auto-detect PR status from GitHub: once the saved list has loaded (and
+  // only when there is something to check), ask the server to look up PRs for
+  // issues still in the pipeline and advance saved/working -> pr-submitted ->
+  // merged. The shared store updates the whole UI. Runs at most once per visit.
+  useEffect(() => {
+    if (!hydrated || !signedIn || savedIssues.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    setSyncing(true);
+    syncSavedIssues().finally(() => {
+      if (!cancelled) {
+        setSyncing(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // savedIssues.length (not identity) so a sync that updates statuses in
+    // place does not re-trigger the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, signedIn, savedIssues.length, syncSavedIssues]);
 
   // Per-status counts for the filter chips, computed from the normalized
   // status so legacy rows (no status yet) land under "Saved".
@@ -50,6 +75,13 @@ export default function SavedIssuesPage() {
       : savedIssues.filter(
           (issue) => normalizeIssueStatus(issue.status) === statusFilter
         );
+
+  // Live contribution stats + streak, recomputed whenever the store changes
+  // (e.g. marking an issue merged updates the counts immediately).
+  const stats = useMemo(
+    () => computeContributionStats(savedIssues),
+    [savedIssues]
+  );
 
   const getVariant = (index) => {
     if (index === 0) {
@@ -95,6 +127,50 @@ export default function SavedIssuesPage() {
                     Back to catalog
                   </Link>
                 </div>
+
+                {hydrated && savedIssues.length > 0 && (
+                  <div className="stats-strip" role="group" aria-label="Your contribution stats">
+                    <div className="stat-card">
+                      <span className="stat-value">{stats.total}</span>
+                      <span className="stat-label">
+                        {stats.total === 1 ? "Issue tracked" : "Issues tracked"}
+                      </span>
+                    </div>
+                    <div className="stat-card">
+                      <span className="stat-value">{stats.working}</span>
+                      <span className="stat-label">Working on</span>
+                    </div>
+                    <div className="stat-card">
+                      <span className="stat-value">{stats.prSubmitted}</span>
+                      <span className="stat-label">PRs opened</span>
+                    </div>
+                    <div className="stat-card stat-card--accent">
+                      <span className="stat-value">{stats.merged}</span>
+                      <span className="stat-label">Merged</span>
+                    </div>
+                    <div className="stat-card">
+                      <span className="stat-value">{stats.mergedThisMonth}</span>
+                      <span className="stat-label">Merged this month</span>
+                    </div>
+                    <div className="stat-card stat-card--streak">
+                      <span className="stat-value">
+                        {stats.currentStreak > 0 ? `🔥 ${stats.currentStreak}` : "—"}
+                      </span>
+                      <span className="stat-label">
+                        Day streak
+                        {stats.bestStreak > 1 ? ` · best ${stats.bestStreak}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {hydrated && savedIssues.length > 0 && (
+                  <p className="tracker-sync-note" aria-live="polite">
+                    {syncing
+                      ? "Checking GitHub for PR updates…"
+                      : "PR status is auto-detected from GitHub — mark an issue “Working on it” and open a PR, and this updates itself."}
+                  </p>
+                )}
 
                 {hydrated && savedIssues.length > 0 && (
                   <div

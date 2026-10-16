@@ -1992,6 +1992,136 @@ a {
   white-space: nowrap;
 }
 
+/* PR link row: shown once an issue reaches "PR submitted" (or already has a
+   link). Mirrors the notes styling; the input flexes and an "Open PR" button
+   appears beside it when a valid github.com pull URL is present. */
+.tracker-pr {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tracker-pr-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.tracker-pr-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracker-pr-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  color: var(--ink);
+  padding: 0 0.7rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.tracker-pr-open:hover {
+  background: #f0efec;
+}
+
+:root.dark-mode .tracker-pr-open:hover {
+  background: #26262a;
+}
+
+.tracker-pr-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+/* Sync status line above the saved list. */
+.tracker-sync-note {
+  margin: 0 0 0.6rem;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}
+
+/* Contribution stats strip on the saved page: live counts + activity streak.
+   Grid of compact cards; the accent (merged) card and the amber streak card
+   draw the eye. */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.stat-card {
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.stat-value {
+  font-family: var(--font-heading), Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.stat-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.stat-card--accent {
+  border-color: #111;
+  background: #111;
+}
+
+.stat-card--accent .stat-value {
+  color: #fff;
+}
+
+.stat-card--accent .stat-label {
+  color: #cfcfcf;
+}
+
+:root.dark-mode .stat-card--accent {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+:root.dark-mode .stat-card--accent .stat-value {
+  color: #101012;
+}
+
+:root.dark-mode .stat-card--accent .stat-label {
+  color: rgba(16, 16, 18, 0.72);
+}
+
+.stat-card--streak .stat-value {
+  color: #a55b00;
+}
+
+:root.dark-mode .stat-card--streak .stat-value {
+  color: #e8b96a;
+}
+
+@media (max-width: 700px) {
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 700px) {
   .tracker-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));

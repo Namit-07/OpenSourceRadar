@@ -53,6 +53,23 @@ function isSafeRepositoryUrl(value) {
   return isSafeUrlOnHosts(value, ["github.com", "api.github.com"]);
 }
 
+/**
+ * The PR link a contributor stores on the tracker. Must be a real
+ * github.com pull request URL (owner/repo/pull/<number>), rendered as a
+ * clickable link — so the same strict host + path allowlist applies.
+ */
+function isSafePullRequestUrl(value) {
+  if (!isSafeUrlOnHosts(value, ["github.com"])) {
+    return false;
+  }
+  try {
+    const pathname = new URL(value).pathname;
+    return /^\/[^/]+\/[^/]+\/pull\/\d+\/?$/.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 function isNonEmptyString(value, maxLength) {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength;
 }
@@ -75,14 +92,15 @@ export function isValidIssueStatus(value) {
 
 /**
  * Validate + return a safe copy of a tracker-fields payload (`status`,
- * `notes`), or `null` when it fails validation.
+ * `notes`, `pr_url`), or `null` when it fails validation.
  *
- * At least one of `status` / `notes` must be present. `notes` are plain text;
- * React escapes them on render and IssueCard never injects them as HTML, so
- * no allowlist applies — only a length cap.
+ * At least one of `status` / `notes` / `pr_url` must be present. `notes` are
+ * plain text; React escapes them on render and IssueCard never injects them as
+ * HTML, so no allowlist applies — only a length cap. `pr_url` must be a real
+ * GitHub pull-request URL, or an empty string to clear it.
  *
  * @param {unknown} updates - The raw payload from the request body.
- * @returns {{ status?: string, notes?: string }|null}
+ * @returns {{ status?: string, notes?: string, pr_url?: string }|null}
  */
 export function validateTrackerUpdate(updates) {
   if (!updates || typeof updates !== "object" || Array.isArray(updates)) {
@@ -92,8 +110,9 @@ export function validateTrackerUpdate(updates) {
   const result = {};
   const hasStatus = updates.status !== undefined;
   const hasNotes = updates.notes !== undefined;
+  const hasPrUrl = updates.pr_url !== undefined;
 
-  if (!hasStatus && !hasNotes) {
+  if (!hasStatus && !hasNotes && !hasPrUrl) {
     return null;
   }
 
@@ -114,6 +133,20 @@ export function validateTrackerUpdate(updates) {
     result.notes = updates.notes;
   }
 
+  if (hasPrUrl) {
+    // Empty string clears the link; anything else must be a real GitHub PR URL.
+    if (updates.pr_url === "") {
+      result.pr_url = "";
+    } else if (
+      typeof updates.pr_url === "string" &&
+      isSafePullRequestUrl(updates.pr_url)
+    ) {
+      result.pr_url = updates.pr_url;
+    } else {
+      return null;
+    }
+  }
+
   return result;
 }
 
@@ -126,16 +159,19 @@ export function validateTrackerUpdate(updates) {
  *
  * @param {unknown} status
  * @param {unknown} notes
- * @returns {{ status: string, notes: string }}
+ * @param {unknown} prUrl
+ * @returns {{ status: string, notes: string, pr_url: string }}
  */
-export function sanitizeTrackerFields(status, notes) {
+export function sanitizeTrackerFields(status, notes, prUrl) {
   const normalizedStatus = isValidIssueStatus(status)
     ? status
     : DEFAULT_ISSUE_STATUS;
   const normalizedNotes =
     typeof notes === "string" ? notes.slice(0, MAX_NOTES_LENGTH) : "";
+  const normalizedPrUrl =
+    typeof prUrl === "string" && isSafePullRequestUrl(prUrl) ? prUrl : "";
 
-  return { status: normalizedStatus, notes: normalizedNotes };
+  return { status: normalizedStatus, notes: normalizedNotes, pr_url: normalizedPrUrl };
 }
 
 /**

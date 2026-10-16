@@ -200,6 +200,62 @@ export async function searchIssuesWithToken(filters, session) {
 }
 
 /**
+ * Server-only: fetch an issue's timeline and extract pull requests that
+ * reference it (GitHub `cross-referenced` timeline events whose source is a
+ * pull request).
+ *
+ * Public-repo timeline reads work with any authenticated token, so our
+ * read-only scope (read:user user:email) is enough. Failures are treated as
+ * "no PR found" so one repo's 404/rate-limit never aborts a whole sync.
+ *
+ * @param {string} repoFullName - e.g. "facebook/react"
+ * @param {number|string} issueNumber - The GitHub issue number.
+ * @param {{ accessToken: string, tokenType: string }} session
+ * @returns {Promise<Array<{ number: number, html_url: string, state: string, merged_at: string|null, login: string|null }>>}
+ */
+export async function findReferencingPullRequests(repoFullName, issueNumber, session) {
+  if (!session?.accessToken || typeof repoFullName !== "string") {
+    return [];
+  }
+
+  const [owner, repo] = repoFullName.split("/");
+  if (!owner || !repo) {
+    return [];
+  }
+
+  const endpoint = `${GITHUB_API_BASE}/repos/${owner}/${repo}/issues/${issueNumber}/timeline`;
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "OpenSourceRadar",
+    Authorization: `${session.tokenType || "bearer"} ${session.accessToken}`,
+  };
+
+  const response = await fetch(`${endpoint}?per_page=100`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const events = await response.json();
+
+  return (Array.isArray(events) ? events : [])
+    .filter((event) => event?.event === "cross-referenced")
+    .map((event) => event?.source?.issue)
+    .filter((source) => source && source.pull_request)
+    .map((pr) => ({
+      number: pr.number,
+      html_url: pr.html_url,
+      state: pr.state,
+      merged_at: pr.merged_at ?? null,
+      login: pr.user?.login ?? null,
+    }));
+}
+
+/**
  * Browser-facing: asks our own /api/issues proxy, which attaches the signed-in
  * user's GitHub token on the server.
  */

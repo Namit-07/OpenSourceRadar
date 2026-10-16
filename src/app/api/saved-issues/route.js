@@ -75,7 +75,11 @@ export async function POST(request) {
   // Tracker fields ride along on the issue payload but are sanitized
   // tolerantly: catalog-shaped data may carry none (defaults apply) or
   // stale ones (fall back to safe values) without failing the save.
-  const tracker = sanitizeTrackerFields(body?.issue?.status, body?.issue?.notes);
+  const tracker = sanitizeTrackerFields(
+    body?.issue?.status,
+    body?.issue?.notes,
+    body?.issue?.pr_url
+  );
 
   try {
     const saved = await saveIssue(githubId, { ...issue, ...tracker });
